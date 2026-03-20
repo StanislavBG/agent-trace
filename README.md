@@ -186,6 +186,38 @@ sqlite3 .agent-trace/traces.db \
   "SELECT AVG((end_time - start_time) / 1e9) as avg_seconds FROM spans WHERE parent_id IS NULL"
 ```
 
+## Structured reports (v0.2.0)
+
+agent-trace outputs machine-readable SARIF 2.1.0 and JUnit XML for CI pipeline integration.
+
+```bash
+# Export trace history as SARIF
+agent-trace traces --format sarif
+agent-trace traces -n 50 --format sarif > traces.sarif
+
+# Export as JUnit XML
+agent-trace traces --format junit
+```
+
+Integrate with GitHub Advanced Security:
+
+```yaml
+# .github/workflows/agent.yml
+- name: Run agent with tracing
+  run: agent-trace record 'node dist/agent.js'
+
+- name: Export traces as SARIF
+  run: agent-trace traces --format sarif > traces.sarif
+
+- name: Upload to GitHub Security tab
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: traces.sarif
+  if: always()
+```
+
+Agent run history and failures appear as code scanning alerts. Default output (no `--format` flag) is unchanged — human-readable terminal output.
+
 ## Part of the Preflight suite
 
 agent-trace is the observability layer in the **Preflight** suite — local-first tools for AI-native CI/CD:

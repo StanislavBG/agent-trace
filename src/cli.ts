@@ -8,7 +8,7 @@ import { initCommand } from './commands/init.js';
 program
   .name('agent-trace')
   .description('CLI-first observability for AI agents — OTel GenAI semantics stored locally in SQLite')
-  .version('0.1.0');
+  .version('0.2.0');
 
 program.addCommand(recordCommand);
 program.addCommand(tracesCommand);
