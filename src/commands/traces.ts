@@ -3,19 +3,11 @@
  */
 
 import { Command } from 'commander';
-import path from 'path';
-import fs from 'fs';
 import chalk from 'chalk';
 import { TraceReader } from '../db/reader.js';
+import { findDb } from '../db/find-db.js';
+import { formatSarif, formatJunit } from '../reporter/index.js';
 import type { SpanRecord } from '../schema.js';
-
-function findDb(dir: string): string | null {
-  const candidate = path.join(dir, '.agent-trace', 'traces.db');
-  if (fs.existsSync(candidate)) return candidate;
-  const parent = path.dirname(dir);
-  if (parent === dir) return null;
-  return findDb(parent);
-}
 
 export function formatDuration(ms: number): string {
   if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
@@ -65,7 +57,7 @@ export function groupByTrace(spans: SpanRecord[]): TraceGroup[] {
   return result.sort((a, b) => b.firstStartTime - a.firstStartTime);
 }
 
-async function runTraces(opts: { limit: number }): Promise<void> {
+async function runTraces(opts: { limit: number; format?: string }): Promise<void> {
   const limit = Number.isFinite(opts.limit) && opts.limit > 0 ? opts.limit : 20;
   const dbPath = findDb(process.cwd());
 
@@ -82,8 +74,28 @@ async function runTraces(opts: { limit: number }): Promise<void> {
     const spans = reader.query({ limit: limit * 50 });
 
     if (spans.length === 0) {
+      if (opts.format === 'sarif') {
+        process.stdout.write(formatSarif([], 'agent-trace') + '\n');
+        return;
+      }
+      if (opts.format === 'junit') {
+        process.stdout.write(formatJunit([]) + '\n');
+        return;
+      }
       console.log(chalk.dim('No traces recorded yet.'));
       console.log(chalk.dim(`DB: ${dbPath}`));
+      return;
+    }
+
+    const limitedSpans = spans.slice(0, limit * 50);
+
+    if (opts.format === 'sarif') {
+      process.stdout.write(formatSarif(limitedSpans, 'agent-trace') + '\n');
+      return;
+    }
+
+    if (opts.format === 'junit') {
+      process.stdout.write(formatJunit(limitedSpans) + '\n');
       return;
     }
 
@@ -109,6 +121,7 @@ async function runTraces(opts: { limit: number }): Promise<void> {
 export const tracesCommand = new Command('traces')
   .description('List recent traces grouped by trace ID')
   .option('-n, --limit <n>', 'Number of traces to show', (v) => parseInt(v, 10), 20)
-  .action(async (opts: { limit: number }) => {
+  .option('--format <format>', 'Output format: sarif or junit')
+  .action(async (opts: { limit: number; format?: string }) => {
     await runTraces(opts);
   });

@@ -12,8 +12,14 @@
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/StanislavBG/agent-trace"
+  },
+  "homepage": "https://github.com/StanislavBG/agent-trace#readme",
   "files": [
     "dist",
     "README.md"

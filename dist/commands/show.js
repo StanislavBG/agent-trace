@@ -2,26 +2,10 @@
  * agent-trace show <traceId> — display span tree for a trace (prefix match OK).
  */
 import { Command } from 'commander';
-import path from 'path';
-import fs from 'fs';
 import chalk from 'chalk';
 import { TraceReader } from '../db/reader.js';
-function findDb(dir) {
-    const candidate = path.join(dir, '.agent-trace', 'traces.db');
-    if (fs.existsSync(candidate))
-        return candidate;
-    const parent = path.dirname(dir);
-    if (parent === dir)
-        return null;
-    return findDb(parent);
-}
-function formatDuration(ms) {
-    if (ms < 1)
-        return `${(ms * 1000).toFixed(0)}µs`;
-    if (ms < 1000)
-        return `${ms.toFixed(1)}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
-}
+import { findDb } from '../db/find-db.js';
+import { formatDuration } from './traces.js';
 export function buildTree(spans) {
     const tree = new Map();
     for (const span of spans) {
@@ -60,7 +44,7 @@ function printTree(tree, parentId, depth) {
     }
 }
 /** Find the full traceId from a prefix */
-function resolveTraceId(reader, prefix) {
+export function resolveTraceId(reader, prefix) {
     if (prefix.length >= 32)
         return prefix; // already full
     const spans = reader.query({ limit: 200 });
@@ -105,7 +89,7 @@ async function runShow(traceIdPrefix, opts) {
 }
 export const showCommand = new Command('show')
     .description('Show span tree for a trace ID (prefix match OK)')
-    .argument('<traceId>', 'Trace ID or unique prefix (at least 8 chars)')
+    .argument('<traceId>', 'Trace ID or unique prefix (at least 4 chars)')
     .option('--db <path>', 'Path to traces.db (default: auto-discover)')
     .action(async (traceId, opts) => {
     await runShow(traceId, opts);

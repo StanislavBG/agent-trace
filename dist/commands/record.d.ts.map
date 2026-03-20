@@ -1,1 +1,1 @@
-{"version":3,"file":"record.d.ts","sourceRoot":"","sources":["../../src/commands/record.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAoFpC,eAAO,MAAM,aAAa,SAKtB,CAAC"}
+{"version":3,"file":"record.d.ts","sourceRoot":"","sources":["../../src/commands/record.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,OAAO,EAAE,OAAO,EAAE,MAAM,WAAW,CAAC;AAuFpC,eAAO,MAAM,aAAa,SAMtB,CAAC"}

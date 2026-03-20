@@ -14,6 +14,7 @@ import { SQLiteSpanExporter } from '../src/db/exporter.js';
 import { TraceReader } from '../src/db/reader.js';
 import { formatDuration, groupByTrace } from '../src/commands/traces.js';
 import { buildTree } from '../src/commands/show.js';
+import { formatSarif, formatJunit } from '../src/reporter/index.js';
 import type { SpanRecord } from '../src/schema.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -578,5 +579,217 @@ describe('Edge cases', () => {
     expect(record.attributes['gen_ai.usage.input_tokens']).toBe(1234);
     expect(record.attributes['cache_hit']).toBe(true);
     expect(record.attributes['exit_code']).toBe(0);
+  });
+});
+
+// ─── 9. Reporter — formatSarif ────────────────────────────────────────────────
+
+describe('formatSarif()', () => {
+  const t0 = Date.now() * 1e6;
+
+  const okSpan = makeSpanRecord({
+    id: 'rpt-ok-1', trace_id: 'trace-alpha', name: 'gen_ai.chat',
+    start_time: t0, end_time: t0 + 500_000_000,
+    status_code: 1, duration_ms: 500,
+    attributes: { 'gen_ai.system': 'anthropic', 'gen_ai.request.model': 'claude-sonnet-4-6' },
+  });
+
+  const errSpan = makeSpanRecord({
+    id: 'rpt-err-1', trace_id: 'trace-alpha', name: 'agent.run',
+    start_time: t0 + 500_000_000, end_time: t0 + 1_000_000_000,
+    status_code: 2, status_msg: 'timeout', duration_ms: 500,
+    attributes: { 'exit_code': 1 },
+  });
+
+  const otherTraceSpan = makeSpanRecord({
+    id: 'rpt-other-1', trace_id: 'trace-beta', name: 'agent.step',
+    start_time: t0 + 2_000_000_000, end_time: t0 + 3_000_000_000,
+    status_code: 1, duration_ms: 1000,
+  });
+
+  it('returns valid SARIF JSON with version 2.1.0', () => {
+    const output = formatSarif([okSpan], 'agent-trace');
+    const parsed = JSON.parse(output) as Record<string, unknown>;
+    expect(parsed.version).toBe('2.1.0');
+  });
+
+  it('sets tool.driver.name to agent-trace', () => {
+    const output = formatSarif([okSpan], 'agent-trace');
+    const parsed = JSON.parse(output) as { runs: Array<{ tool: { driver: { name: string } } }> };
+    expect(parsed.runs[0].tool.driver.name).toBe('agent-trace');
+  });
+
+  it('returns empty results and rules for empty span array', () => {
+    const output = formatSarif([], 'agent-trace');
+    const parsed = JSON.parse(output) as { runs: Array<{ results: unknown[]; tool: { driver: { rules: unknown[] } } }> };
+    expect(parsed.runs[0].results).toHaveLength(0);
+    expect(parsed.runs[0].tool.driver.rules).toHaveLength(0);
+  });
+
+  it('produces one rule per unique trace_id', () => {
+    const output = formatSarif([okSpan, errSpan, otherTraceSpan], 'agent-trace');
+    const parsed = JSON.parse(output) as { runs: Array<{ tool: { driver: { rules: unknown[] } } }> };
+    // trace-alpha and trace-beta → 2 rules
+    expect(parsed.runs[0].tool.driver.rules).toHaveLength(2);
+  });
+
+  it('produces one result per span', () => {
+    const output = formatSarif([okSpan, errSpan], 'agent-trace');
+    const parsed = JSON.parse(output) as { runs: Array<{ results: unknown[] }> };
+    expect(parsed.runs[0].results).toHaveLength(2);
+  });
+
+  it('assigns level="error" to spans with status_code=2', () => {
+    const output = formatSarif([okSpan, errSpan], 'agent-trace');
+    const parsed = JSON.parse(output) as { runs: Array<{ results: Array<{ level: string; message: { text: string } }> }> };
+    const errResult = parsed.runs[0].results.find(r => r.level === 'error');
+    expect(errResult).toBeDefined();
+    expect(errResult?.message.text).toContain('agent.run');
+  });
+
+  it('assigns level="none" to OK spans', () => {
+    const output = formatSarif([okSpan], 'agent-trace');
+    const parsed = JSON.parse(output) as { runs: Array<{ results: Array<{ level: string }> }> };
+    expect(parsed.runs[0].results[0].level).toBe('none');
+  });
+
+  it('error result message includes status_msg when present', () => {
+    const output = formatSarif([errSpan], 'agent-trace');
+    const parsed = JSON.parse(output) as { runs: Array<{ results: Array<{ message: { text: string } }> }> };
+    expect(parsed.runs[0].results[0].message.text).toContain('timeout');
+  });
+
+  it('result message includes span name', () => {
+    const output = formatSarif([okSpan], 'agent-trace');
+    const parsed = JSON.parse(output) as { runs: Array<{ results: Array<{ message: { text: string } }> }> };
+    expect(parsed.runs[0].results[0].message.text).toContain('gen_ai.chat');
+  });
+
+  it('includes $schema in output', () => {
+    const output = formatSarif([okSpan], 'agent-trace');
+    const parsed = JSON.parse(output) as Record<string, unknown>;
+    expect(typeof parsed.$schema).toBe('string');
+    expect(parsed.$schema).toContain('sarif');
+  });
+
+  it('rule shortDescription mentions errors when trace has error spans', () => {
+    const output = formatSarif([okSpan, errSpan], 'agent-trace');
+    const parsed = JSON.parse(output) as {
+      runs: Array<{ tool: { driver: { rules: Array<{ shortDescription: { text: string } }> } } }>
+    };
+    const alphaRule = parsed.runs[0].tool.driver.rules[0];
+    expect(alphaRule.shortDescription.text).toContain('errors');
+  });
+});
+
+// ─── 10. Reporter — formatJunit ───────────────────────────────────────────────
+
+describe('formatJunit()', () => {
+  const t0 = Date.now() * 1e6;
+
+  const okSpan = makeSpanRecord({
+    id: 'ju-ok-1', trace_id: 'trace-gamma', name: 'gen_ai.chat',
+    start_time: t0, end_time: t0 + 200_000_000,
+    status_code: 1, duration_ms: 200,
+  });
+
+  const errSpan = makeSpanRecord({
+    id: 'ju-err-1', trace_id: 'trace-gamma', name: 'agent.run',
+    start_time: t0 + 200_000_000, end_time: t0 + 600_000_000,
+    status_code: 2, status_msg: 'connection refused', duration_ms: 400,
+    attributes: { exit_code: 1 },
+  });
+
+  const otherTrace = makeSpanRecord({
+    id: 'ju-other-1', trace_id: 'trace-delta', name: 'init.step',
+    start_time: t0 + 1_000_000_000, end_time: t0 + 1_500_000_000,
+    status_code: 1, duration_ms: 500,
+  });
+
+  it('produces XML with testsuites root element', () => {
+    const output = formatJunit([okSpan]);
+    expect(output).toContain('<testsuites');
+    expect(output).toContain('</testsuites>');
+  });
+
+  it('sets testsuites name to agent-trace', () => {
+    const output = formatJunit([okSpan]);
+    expect(output).toContain('name="agent-trace"');
+  });
+
+  it('produces valid XML declaration', () => {
+    const output = formatJunit([okSpan]);
+    expect(output.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
+  });
+
+  it('returns minimal testsuites with zero tests for empty spans', () => {
+    const output = formatJunit([]);
+    expect(output).toContain('<testsuites');
+    expect(output).toContain('tests="0"');
+    expect(output).toContain('failures="0"');
+    // No opening <testsuite ...> tags (but </testsuites> is fine)
+    expect(output).not.toMatch(/<testsuite\s/);
+  });
+
+  it('produces one testsuite per unique trace_id', () => {
+    const output = formatJunit([okSpan, errSpan, otherTrace]);
+    // Match only opening <testsuite ...> tags, not closing </testsuite>
+    const suiteMatches = output.match(/<testsuite\s/g);
+    // trace-gamma and trace-delta
+    expect(suiteMatches).toHaveLength(2);
+  });
+
+  it('produces one testcase per span', () => {
+    const output = formatJunit([okSpan, errSpan]);
+    const caseMatches = output.match(/<testcase/g);
+    expect(caseMatches).toHaveLength(2);
+  });
+
+  it('adds failure element for spans with status_code=2', () => {
+    const output = formatJunit([okSpan, errSpan]);
+    const failures = output.match(/<failure/g);
+    expect(failures).toHaveLength(1);
+  });
+
+  it('does not add failure element for OK spans', () => {
+    const output = formatJunit([okSpan]);
+    expect(output).not.toContain('<failure');
+  });
+
+  it('failure message contains span name', () => {
+    const output = formatJunit([errSpan]);
+    expect(output).toContain('agent.run');
+  });
+
+  it('failure message contains status_msg when present', () => {
+    const output = formatJunit([errSpan]);
+    expect(output).toContain('connection refused');
+  });
+
+  it('testsuite name is the trace_id', () => {
+    const output = formatJunit([okSpan]);
+    expect(output).toContain('name="trace-gamma"');
+  });
+
+  it('XML-escapes special characters in span names', () => {
+    const specialSpan = makeSpanRecord({
+      id: 'ju-xml-1', trace_id: 'trace-xml', name: 'span<with>special&chars',
+      start_time: t0, end_time: t0 + 100_000_000,
+      status_code: 1, duration_ms: 100,
+    });
+    const output = formatJunit([specialSpan]);
+    expect(output).not.toContain('span<with>special&chars');
+    expect(output).toContain('span&lt;with&gt;special&amp;chars');
+  });
+
+  it('testsuite failures count matches actual error spans', () => {
+    const output = formatJunit([okSpan, errSpan]);
+    // trace-gamma has 1 failure
+    expect(output).toMatch(/testsuite[^>]*failures="1"/);
+  });
+
+  it('total tests count across all suites is correct', () => {
+    const output = formatJunit([okSpan, errSpan, otherTrace]);
+    expect(output).toMatch(/testsuites[^>]*tests="3"/);
   });
 });

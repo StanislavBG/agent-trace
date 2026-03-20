@@ -17,15 +17,7 @@ import {
   ATTR_GEN_AI_OPERATION_NAME,
 } from '@opentelemetry/semantic-conventions/incubating';
 import { SQLiteSpanExporter } from '../db/exporter.js';
-
-/** Walk up from dir looking for .agent-trace/traces.db; return path if found */
-function findDb(dir: string): string | null {
-  const candidate = path.join(dir, '.agent-trace', 'traces.db');
-  if (fs.existsSync(candidate)) return candidate;
-  const parent = path.dirname(dir);
-  if (parent === dir) return null;  // filesystem root
-  return findDb(parent);
-}
+import { findDb } from '../db/find-db.js';
 
 /** Resolve DB path: find existing or create in cwd */
 function resolveDbPath(cwd: string): string {
@@ -36,7 +28,13 @@ function resolveDbPath(cwd: string): string {
   return path.join(dir, 'traces.db');
 }
 
-async function runRecord(command: string): Promise<void> {
+async function runRecord(command: string, opts: { timeout?: number } = {}): Promise<void> {
+  const trimmed = command.trim();
+  if (!trimmed) {
+    console.error('agent-trace: command must not be empty');
+    process.exit(1);
+  }
+
   const dbPath = resolveDbPath(process.cwd());
   const exporter = new SQLiteSpanExporter(dbPath);
 
@@ -51,19 +49,24 @@ async function runRecord(command: string): Promise<void> {
     attributes: {
       [ATTR_GEN_AI_SYSTEM]: 'agent-trace',
       [ATTR_GEN_AI_OPERATION_NAME]: 'run',
-      'command': command,
+      'command': trimmed,
     },
   });
 
-  const ctx = otelApi.context.with(otelApi.trace.setSpan(otelApi.context.active(), span), () => {
-    // context established — return it for use below
-    return otelApi.context.active();
-  });
-
   const exitCode = await new Promise<number>((resolve) => {
-    const child = spawn('sh', ['-c', command], { stdio: 'inherit' });
+    const spawnOpts: Parameters<typeof spawn>[2] = { stdio: 'inherit' };
+    if (opts.timeout && opts.timeout > 0) spawnOpts.timeout = opts.timeout * 1000;
 
-    child.on('exit', (code) => {
+    const child = spawn('sh', ['-c', trimmed], spawnOpts);
+
+    process.on('SIGINT', () => {
+      child.kill('SIGINT');
+    });
+
+    child.on('exit', (code, signal) => {
+      if (signal === 'SIGTERM') {
+        span.setStatus({ code: otelApi.SpanStatusCode.ERROR, message: `timed out after ${opts.timeout}s` });
+      }
       resolve(code ?? 1);
     });
 
@@ -92,6 +95,7 @@ async function runRecord(command: string): Promise<void> {
 export const recordCommand = new Command('record')
   .description('Wrap a shell command with OTel GenAI tracing, store to SQLite')
   .argument('<command>', 'Shell command to run (e.g. \'claude -p "hello"\')')
-  .action(async (command: string) => {
-    await runRecord(command);
+  .option('-t, --timeout <seconds>', 'Kill command after N seconds', (v) => parseInt(v, 10))
+  .action(async (command: string, opts: { timeout?: number }) => {
+    await runRecord(command, opts);
   });

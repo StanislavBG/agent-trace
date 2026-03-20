@@ -3,25 +3,11 @@
  */
 
 import { Command } from 'commander';
-import path from 'path';
-import fs from 'fs';
 import chalk from 'chalk';
 import { TraceReader } from '../db/reader.js';
+import { findDb } from '../db/find-db.js';
+import { formatDuration } from './traces.js';
 import type { SpanRecord } from '../schema.js';
-
-function findDb(dir: string): string | null {
-  const candidate = path.join(dir, '.agent-trace', 'traces.db');
-  if (fs.existsSync(candidate)) return candidate;
-  const parent = path.dirname(dir);
-  if (parent === dir) return null;
-  return findDb(parent);
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
-  if (ms < 1000) return `${ms.toFixed(1)}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-}
 
 export function buildTree(spans: SpanRecord[]): Map<string | null, SpanRecord[]> {
   const tree = new Map<string | null, SpanRecord[]>();
@@ -63,7 +49,7 @@ function printTree(
 }
 
 /** Find the full traceId from a prefix */
-function resolveTraceId(reader: TraceReader, prefix: string): string | null {
+export function resolveTraceId(reader: TraceReader, prefix: string): string | null {
   if (prefix.length >= 32) return prefix;  // already full
   const spans = reader.query({ limit: 200 });
   const match = spans.find(s => s.trace_id.startsWith(prefix));
@@ -118,7 +104,7 @@ async function runShow(traceIdPrefix: string, opts: { db?: string }): Promise<vo
 
 export const showCommand = new Command('show')
   .description('Show span tree for a trace ID (prefix match OK)')
-  .argument('<traceId>', 'Trace ID or unique prefix (at least 8 chars)')
+  .argument('<traceId>', 'Trace ID or unique prefix (at least 4 chars)')
   .option('--db <path>', 'Path to traces.db (default: auto-discover)')
   .action(async (traceId: string, opts: { db?: string }) => {
     await runShow(traceId, opts);
