@@ -22,7 +22,7 @@ function formatDuration(ms) {
         return `${ms.toFixed(1)}ms`;
     return `${(ms / 1000).toFixed(2)}s`;
 }
-function buildTree(spans) {
+export function buildTree(spans) {
     const tree = new Map();
     for (const span of spans) {
         const parent = span.parent_id ?? null;
@@ -68,6 +68,10 @@ function resolveTraceId(reader, prefix) {
     return match?.trace_id ?? null;
 }
 async function runShow(traceIdPrefix, opts) {
+    if (traceIdPrefix.length < 4) {
+        console.error(chalk.red('Error: trace ID prefix must be at least 4 characters.'));
+        process.exit(1);
+    }
     const dbPath = opts.db ?? findDb(process.cwd());
     if (!dbPath) {
         console.log(chalk.yellow('No traces.db found.'));

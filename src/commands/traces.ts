@@ -17,7 +17,7 @@ function findDb(dir: string): string | null {
   return findDb(parent);
 }
 
-function formatDuration(ms: number): string {
+export function formatDuration(ms: number): string {
   if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
   if (ms < 1000) return `${ms.toFixed(1)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
@@ -32,7 +32,7 @@ interface TraceGroup {
   rootCommand?: string;
 }
 
-function groupByTrace(spans: SpanRecord[]): TraceGroup[] {
+export function groupByTrace(spans: SpanRecord[]): TraceGroup[] {
   const groups = new Map<string, SpanRecord[]>();
 
   for (const span of spans) {
@@ -66,6 +66,7 @@ function groupByTrace(spans: SpanRecord[]): TraceGroup[] {
 }
 
 async function runTraces(opts: { limit: number }): Promise<void> {
+  const limit = Number.isFinite(opts.limit) && opts.limit > 0 ? opts.limit : 20;
   const dbPath = findDb(process.cwd());
 
   if (!dbPath) {
@@ -78,7 +79,7 @@ async function runTraces(opts: { limit: number }): Promise<void> {
 
   try {
     // Fetch enough spans to cover the requested number of traces
-    const spans = reader.query({ limit: opts.limit * 50 });
+    const spans = reader.query({ limit: limit * 50 });
 
     if (spans.length === 0) {
       console.log(chalk.dim('No traces recorded yet.'));
@@ -86,7 +87,7 @@ async function runTraces(opts: { limit: number }): Promise<void> {
       return;
     }
 
-    const traces = groupByTrace(spans).slice(0, opts.limit);
+    const traces = groupByTrace(spans).slice(0, limit);
 
     console.log(chalk.dim(`${traces.length} trace(s) — ${dbPath}`));
     console.log();

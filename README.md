@@ -169,7 +169,7 @@ CREATE TABLE spans (
   name        TEXT NOT NULL,
   start_time  INTEGER NOT NULL,  -- nanoseconds since epoch
   end_time    INTEGER NOT NULL,
-  status_code INTEGER NOT NULL,  -- 1=UNSET, 2=ERROR, 3=OK (OTel status codes)
+  status_code INTEGER NOT NULL,  -- 0=UNSET, 1=OK, 2=ERROR (OTel SpanStatusCode)
   status_msg  TEXT,
   attributes  TEXT               -- JSON: gen_ai.* + custom attributes
 );
