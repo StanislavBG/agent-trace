@@ -10,6 +10,11 @@ No cloud. No API key. Traces live in `.agent-trace/traces.db` next to your proje
 npm install -g agent-trace
 ```
 
+GitHub (pre-release):
+```bash
+npm install -g github:StanislavBG/agent-trace
+```
+
 Or run without installing:
 
 ```bash
@@ -83,6 +88,10 @@ CREATE TABLE spans (
   attributes  TEXT              -- JSON blob
 );
 ```
+
+## Preflight suite integration
+
+agent-trace is part of the **Preflight** suite of local-first developer tools for AI-native workflows. Other Preflight tools can query the same `.agent-trace/traces.db` SQLite database to correlate agent invocations with token usage, latency, and error rates — all on-machine, with no external dependencies.
 
 ## Requirements
 
