@@ -45,6 +45,7 @@
     "@opentelemetry/core": "^1.30.0",
     "@opentelemetry/sdk-trace-node": "^2.6.0",
     "@opentelemetry/semantic-conventions": "^1.40.0",
+    "@preflight/license": "file:../preflight-license",
     "better-sqlite3": "^12.8.0",
     "chalk": "^5.3.0",
     "commander": "^12.1.0"

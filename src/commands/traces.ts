@@ -7,6 +7,7 @@ import chalk from 'chalk';
 import { TraceReader } from '../db/reader.js';
 import { findDb } from '../db/find-db.js';
 import { formatSarif, formatJunit } from '../reporter/index.js';
+import { guard } from '@preflight/license';
 import type { SpanRecord } from '../schema.js';
 
 export function formatDuration(ms: number): string {
@@ -58,6 +59,11 @@ export function groupByTrace(spans: SpanRecord[]): TraceGroup[] {
 }
 
 async function runTraces(opts: { limit: number; format?: string }): Promise<void> {
+  // SARIF and JUnit output are Team-tier features — gate them behind a license key
+  if (opts.format === 'sarif' || opts.format === 'junit') {
+    guard('team', { feature: `--format ${opts.format}` });
+  }
+
   const limit = Number.isFinite(opts.limit) && opts.limit > 0 ? opts.limit : 20;
   const dbPath = findDb(process.cwd());
 
