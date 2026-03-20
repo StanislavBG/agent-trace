@@ -6,6 +6,7 @@ import chalk from 'chalk';
 import { TraceReader } from '../db/reader.js';
 import { findDb } from '../db/find-db.js';
 import { formatSarif, formatJunit } from '../reporter/index.js';
+import { guard } from '@preflight/license';
 export function formatDuration(ms) {
     if (ms < 1)
         return `${(ms * 1000).toFixed(0)}µs`;
@@ -41,6 +42,10 @@ export function groupByTrace(spans) {
     return result.sort((a, b) => b.firstStartTime - a.firstStartTime);
 }
 async function runTraces(opts) {
+    // SARIF and JUnit output are Team-tier features — gate them behind a license key
+    if (opts.format === 'sarif' || opts.format === 'junit') {
+        guard('team', { feature: `--format ${opts.format}` });
+    }
     const limit = Number.isFinite(opts.limit) && opts.limit > 0 ? opts.limit : 20;
     const dbPath = findDb(process.cwd());
     if (!dbPath) {
