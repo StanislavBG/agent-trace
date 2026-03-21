@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/StanislavBG/agent-trace"
+    "url": "git+https://github.com/StanislavBG/agent-trace.git"
   },
   "homepage": "https://github.com/StanislavBG/agent-trace#readme",
   "files": [
@@ -48,7 +48,7 @@
     "@opentelemetry/core": "^1.30.0",
     "@opentelemetry/sdk-trace-node": "^2.6.0",
     "@opentelemetry/semantic-conventions": "^1.40.0",
-    "@preflight/license": "file:../preflight-license",
+    "@preflight/license": "^1.0.0",
     "better-sqlite3": "^12.8.0",
     "chalk": "^5.3.0",
     "commander": "^12.1.0"
