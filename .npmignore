@@ -1,0 +1,8 @@
+src/
+tests/
+tsconfig.json
+vitest.config.ts
+.agent-trace/
+node_modules/
+*.tsbuildinfo
+.github/
