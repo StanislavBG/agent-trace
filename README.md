@@ -38,9 +38,8 @@ agent-trace is CLI-first by design. Traces are a SQLite file you own. No vendor 
 
 ## Install
 
-GitHub (early access — npm package coming soon):
 ```bash
-npm install -g github:StanislavBG/agent-trace
+npm install -g agent-trace
 ```
 
 **Requirements:** Node.js >= 18. No external services, no accounts, no config files.
@@ -155,7 +154,7 @@ Wrap agent runs in CI to build a persistent trace history without any external s
   run: agent-trace traces -n 1
 ```
 
-Combine with [agent-gate](https://github.com/StanislavBG/agent-gate) to run regression tests, compliance checks, and trace recording as a unified pre-deploy gate.
+Combine with [agent-gate](https://www.npmjs.com/package/@bilkobibitkov/agent-gate) to run regression tests, compliance checks, and trace recording as a unified pre-deploy gate.
 
 ## SQLite schema
 
@@ -224,10 +223,10 @@ agent-trace is the observability layer in the **Preflight** suite — local-firs
 
 | Tool | What it does |
 |------|-------------|
-| [stepproof](https://github.com/StanislavBG/stepproof) | Regression testing for AI agent behavior |
-| [agent-comply](https://github.com/StanislavBG/agent-comply) | EU AI Act compliance-as-code CLI |
-| [agent-shift](https://github.com/StanislavBG/agent-shift) | Safe model migration testing |
-| [agent-gate](https://github.com/StanislavBG/agent-gate) | Deployment readiness gate (orchestrates all Preflight tools) |
+| [stepproof](https://www.npmjs.com/package/stepproof) | Regression testing for AI agent behavior |
+| [agent-comply](https://www.npmjs.com/package/agent-comply) | EU AI Act compliance-as-code CLI |
+| [agent-shift](https://www.npmjs.com/package/agent-shift) | Safe model migration testing |
+| [agent-gate](https://www.npmjs.com/package/@bilkobibitkov/agent-gate) | Deployment readiness gate (orchestrates all Preflight tools) |
 | **agent-trace** | **Local observability — traces stay on your machine** |
 
 All tools are local-first, CLI-native, zero-config, and work offline.
