@@ -22,7 +22,8 @@
   "homepage": "https://github.com/StanislavBG/agent-trace#readme",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "keywords": [
     "ai",

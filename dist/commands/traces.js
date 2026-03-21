@@ -3,6 +3,8 @@
  */
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { writeFileSync } from 'fs';
+import { resolve } from 'path';
 import { TraceReader } from '../db/reader.js';
 import { findDb } from '../db/find-db.js';
 import { formatSarif, formatJunit } from '../reporter/index.js';
@@ -41,6 +43,14 @@ export function groupByTrace(spans) {
     // Sort by most recent first
     return result.sort((a, b) => b.firstStartTime - a.firstStartTime);
 }
+function writeOrPrint(formatted, output) {
+    if (output) {
+        writeFileSync(resolve(output), formatted, 'utf-8');
+    }
+    else {
+        process.stdout.write(formatted + '\n');
+    }
+}
 async function runTraces(opts) {
     // SARIF and JUnit output are Team-tier features — gate them behind a license key
     if (opts.format === 'sarif' || opts.format === 'junit') {
@@ -59,11 +69,11 @@ async function runTraces(opts) {
         const spans = reader.query({ limit: limit * 50 });
         if (spans.length === 0) {
             if (opts.format === 'sarif') {
-                process.stdout.write(formatSarif([], 'agent-trace') + '\n');
+                writeOrPrint(formatSarif([], 'agent-trace'), opts.output);
                 return;
             }
             if (opts.format === 'junit') {
-                process.stdout.write(formatJunit([]) + '\n');
+                writeOrPrint(formatJunit([]), opts.output);
                 return;
             }
             console.log(chalk.dim('No traces recorded yet.'));
@@ -72,11 +82,11 @@ async function runTraces(opts) {
         }
         const limitedSpans = spans.slice(0, limit * 50);
         if (opts.format === 'sarif') {
-            process.stdout.write(formatSarif(limitedSpans, 'agent-trace') + '\n');
+            writeOrPrint(formatSarif(limitedSpans, 'agent-trace'), opts.output);
             return;
         }
         if (opts.format === 'junit') {
-            process.stdout.write(formatJunit(limitedSpans) + '\n');
+            writeOrPrint(formatJunit(limitedSpans), opts.output);
             return;
         }
         const traces = groupByTrace(spans).slice(0, limit);
@@ -99,6 +109,7 @@ export const tracesCommand = new Command('traces')
     .description('List recent traces grouped by trace ID')
     .option('-n, --limit <n>', 'Number of traces to show', (v) => parseInt(v, 10), 20)
     .option('--format <format>', 'Output format: sarif or junit')
+    .option('--output <file>', 'Write format output to file instead of stdout')
     .action(async (opts) => {
     await runTraces(opts);
 });
