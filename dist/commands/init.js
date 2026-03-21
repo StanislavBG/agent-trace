@@ -21,7 +21,19 @@ async function runInit() {
         console.log(chalk.dim(`Already exists: ${dbPath}`));
     }
     else {
-        console.log(chalk.green(`Created: ${dbPath}`));
+        console.log(chalk.green(`✔ Created: ${dbPath}`));
+        console.log('');
+        console.log('agent-trace stores OTel GenAI spans locally — no cloud, no API key.');
+        console.log('');
+        console.log('Next:');
+        console.log(`  ${chalk.cyan('agent-trace record \'your-ai-command\'')}   — wrap any command with tracing`);
+        console.log(`  ${chalk.cyan('agent-trace traces')}                      — see what ran`);
+        console.log(`  ${chalk.cyan('agent-trace show <traceId>')}              — inspect span tree`);
+        console.log('');
+        console.log('Works with any CLI tool: claude, openai, langchain, etc.');
+        console.log('');
+        console.log('Tracing + regression testing = full Preflight pipeline:');
+        console.log(`  ${chalk.cyan('npx stepproof init')}`);
     }
 }
 export const initCommand = new Command('init')

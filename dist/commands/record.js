@@ -26,7 +26,7 @@ async function runRecord(command, opts = {}) {
     const trimmed = command.trim();
     if (!trimmed) {
         console.error('agent-trace: command must not be empty');
-        process.exit(1);
+        process.exit(2);
     }
     const dbPath = resolveDbPath(process.cwd());
     const exporter = new SQLiteSpanExporter(dbPath);
