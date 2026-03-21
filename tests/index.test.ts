@@ -793,3 +793,57 @@ describe('formatJunit()', () => {
     expect(output).toMatch(/testsuites[^>]*tests="3"/);
   });
 });
+
+// ── --output <file> behavior ──────────────────────────────────────────────────
+
+describe('--output file writing', () => {
+  const tmpFile = path.resolve(os.tmpdir(), `agent-trace-test-output-${Date.now()}.sarif`);
+
+  afterEach(() => {
+    if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+  });
+
+  it('formatSarif output can be written to a file and read back as valid SARIF', () => {
+    const okSpan: SpanRecord = {
+      id: 'span-file-1',
+      trace_id: 'trace-file-alpha',
+      parent_id: null,
+      name: 'file-test-span',
+      start_time: Date.now() * 1e6,
+      end_time: (Date.now() + 100) * 1e6,
+      duration_ms: 100,
+      status_code: 1,
+      status_msg: null,
+      attributes: {},
+      created_at: new Date().toISOString(),
+    };
+    const sarif = formatSarif([okSpan], 'agent-trace');
+    fs.writeFileSync(tmpFile, sarif, 'utf-8');
+    const contents = fs.readFileSync(tmpFile, 'utf-8');
+    const parsed = JSON.parse(contents);
+    expect(parsed.version).toBe('2.1.0');
+    expect(parsed.runs[0].tool.driver.name).toBe('agent-trace');
+  });
+
+  it('formatJunit output can be written to a file and read back as valid XML', () => {
+    const okSpan: SpanRecord = {
+      id: 'span-file-2',
+      trace_id: 'trace-file-beta',
+      parent_id: null,
+      name: 'file-test-span-2',
+      start_time: Date.now() * 1e6,
+      end_time: (Date.now() + 200) * 1e6,
+      duration_ms: 200,
+      status_code: 1,
+      status_msg: null,
+      attributes: {},
+      created_at: new Date().toISOString(),
+    };
+    const xml = formatJunit([okSpan]);
+    fs.writeFileSync(tmpFile, xml, 'utf-8');
+    const contents = fs.readFileSync(tmpFile, 'utf-8');
+    expect(contents).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(contents).toContain('<testsuites');
+    expect(contents).toContain('name="agent-trace"');
+  });
+});

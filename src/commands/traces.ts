@@ -4,6 +4,8 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { writeFileSync } from 'fs';
+import { resolve } from 'path';
 import { TraceReader } from '../db/reader.js';
 import { findDb } from '../db/find-db.js';
 import { formatSarif, formatJunit } from '../reporter/index.js';
@@ -58,7 +60,15 @@ export function groupByTrace(spans: SpanRecord[]): TraceGroup[] {
   return result.sort((a, b) => b.firstStartTime - a.firstStartTime);
 }
 
-async function runTraces(opts: { limit: number; format?: string }): Promise<void> {
+function writeOrPrint(formatted: string, output?: string): void {
+  if (output) {
+    writeFileSync(resolve(output), formatted, 'utf-8');
+  } else {
+    process.stdout.write(formatted + '\n');
+  }
+}
+
+async function runTraces(opts: { limit: number; format?: string; output?: string }): Promise<void> {
   // SARIF and JUnit output are Team-tier features — gate them behind a license key
   if (opts.format === 'sarif' || opts.format === 'junit') {
     guard('team', { feature: `--format ${opts.format}` });
@@ -81,11 +91,11 @@ async function runTraces(opts: { limit: number; format?: string }): Promise<void
 
     if (spans.length === 0) {
       if (opts.format === 'sarif') {
-        process.stdout.write(formatSarif([], 'agent-trace') + '\n');
+        writeOrPrint(formatSarif([], 'agent-trace'), opts.output);
         return;
       }
       if (opts.format === 'junit') {
-        process.stdout.write(formatJunit([]) + '\n');
+        writeOrPrint(formatJunit([]), opts.output);
         return;
       }
       console.log(chalk.dim('No traces recorded yet.'));
@@ -96,12 +106,12 @@ async function runTraces(opts: { limit: number; format?: string }): Promise<void
     const limitedSpans = spans.slice(0, limit * 50);
 
     if (opts.format === 'sarif') {
-      process.stdout.write(formatSarif(limitedSpans, 'agent-trace') + '\n');
+      writeOrPrint(formatSarif(limitedSpans, 'agent-trace'), opts.output);
       return;
     }
 
     if (opts.format === 'junit') {
-      process.stdout.write(formatJunit(limitedSpans) + '\n');
+      writeOrPrint(formatJunit(limitedSpans), opts.output);
       return;
     }
 
@@ -128,6 +138,7 @@ export const tracesCommand = new Command('traces')
   .description('List recent traces grouped by trace ID')
   .option('-n, --limit <n>', 'Number of traces to show', (v) => parseInt(v, 10), 20)
   .option('--format <format>', 'Output format: sarif or junit')
-  .action(async (opts: { limit: number; format?: string }) => {
+  .option('--output <file>', 'Write format output to file instead of stdout')
+  .action(async (opts: { limit: number; format?: string; output?: string }) => {
     await runTraces(opts);
   });
