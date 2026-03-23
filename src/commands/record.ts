@@ -9,6 +9,7 @@ import { Command } from 'commander';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import { checkUsageLimit, trackUsageAfterRun } from '../usage.js';
 import { NodeTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-node';
 import type { SpanExporter } from '@opentelemetry/sdk-trace-base';
 import * as otelApi from '@opentelemetry/api';
@@ -97,5 +98,7 @@ export const recordCommand = new Command('record')
   .argument('<command>', 'Shell command to run (e.g. \'claude -p "hello"\')')
   .option('-t, --timeout <seconds>', 'Kill command after N seconds', (v) => parseInt(v, 10))
   .action(async (command: string, opts: { timeout?: number }) => {
+    if (!checkUsageLimit()) process.exit(1);
+    process.on('exit', trackUsageAfterRun);
     await runRecord(command, opts);
   });
